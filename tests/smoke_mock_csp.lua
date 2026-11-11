@@ -70,15 +70,19 @@ local car = {
   wheels = {},
 }
 local function placeFront(z)
-  car.wheels[0] = { contactPoint = vec3(-0.8, 0, z), position = vec3(-0.8, 0.3, z) }
-  car.wheels[1] = { contactPoint = vec3(0.8, 0, z), position = vec3(0.8, 0.3, z) }
-  car.wheels[2] = { contactPoint = vec3(-0.8, 0, z - 2.5), position = vec3(-0.8, 0.3, z - 2.5) }
-  car.wheels[3] = { contactPoint = vec3(0.8, 0, z - 2.5), position = vec3(0.8, 0.3, z - 2.5) }
+  car.wheels = car.wheels or {}
+  car.wheels[0] = { contactPoint = vec3(-0.8, 0, z), position = vec3(-0.8, 0.3, z), tyreOptimumTemperature = 80 }
+  car.wheels[1] = { contactPoint = vec3(0.8, 0, z), position = vec3(0.8, 0.3, z), tyreOptimumTemperature = 80 }
+  car.wheels[2] = { contactPoint = vec3(-0.8, 0, z - 2.5), position = vec3(-0.8, 0.3, z - 2.5), tyreOptimumTemperature = 75 }
+  car.wheels[3] = { contactPoint = vec3(0.8, 0, z - 2.5), position = vec3(0.8, 0.3, z - 2.5), tyreOptimumTemperature = 75 }
 end
 placeFront(-5)
+local tyreCalls = {}
+physics = { setTyresTemperature = function (carIndex, wheel, temp) table.insert(tyreCalls, { carIndex, wheel, temp }) end }
 local simState = { isReplayActive = false, isPaused = false, isInMainMenu = false }
 local files, store = {}, {}
 ac = {
+  Wheel = { FrontLeft = 1, FrontRight = 2, RearLeft = 4, RearRight = 8 },
   getSim = function () return simState end,
   getCar = function (i) return i == 0 and car or nil end,
   getTrackID = function () return 'test_hillclimb' end,
@@ -148,7 +152,7 @@ check(files[appDir .. '/data/starts.local.json'] ~= nil, 'calibrarea salvată î
 placeFront(-0.30)
 frames(90)
 check(appRef.result.state == A.State.ALIGNED, 'aliniat după ~1,4 s (stare: ' .. tostring(appRef.result.state) .. ')')
-placeFront(-0.10)
+placeFront(-0.05)
 frames(2)
 check(appRef.result.state == A.State.TOO_FAR_FORWARD and appRef.result.alignmentLost, 'prea în față + avertisment pierdere aliniere')
 
@@ -185,6 +189,38 @@ simState.isReplayActive = false
 -- Câmp lipsă în API (wheels = nil) → fără crash, referință aproximativă.
 car.wheels = nil; frames(3)
 check(appRef.result.state ~= A.State.ALIGNED, 'fără roți → niciodată verde (stare: ' .. tostring(appRef.result.state) .. ')')
+
+-- ── Încălzire anvelope + interfață minimizată în manșă ──
+local UiDriver = require('src/ui_driver')
+local compactCalls = 0
+local origCompact = UiDriver.drawCompact
+UiDriver.drawCompact = function (m) compactCalls = compactCalls + 1; return origCompact(m) end
+local p0z = appRef.activeCfg.line.p0.z
+car.isInPit, car.speedKmh = true, 0
+car.position = vec3(0, 0, p0z - 300); placeFront(p0z - 298)
+frames(30)
+local n1 = #tyreCalls
+check(appRef.warmState == 'pit' and n1 >= 4 and tyreCalls[1][1] == 0 and tyreCalls[1][3] == 80, 'boxe: încălzire activă, temperatura optimă aplicată mașinii proprii (' .. tostring(appRef.warmState) .. ')')
+car.isInPit = false
+car.position = vec3(0, 0, p0z - 10); placeFront(p0z - 8)
+frames(10)
+local n2 = #tyreCalls
+frames(20)
+check(appRef.warmState == 'stopped' and #tyreCalls == n2, 'la 10 m de start: încălzirea oprită')
+car.speedKmh = 80
+car.position = vec3(0, 0, p0z + 28); placeFront(p0z + 30)
+frames(3)
+check(appRef.onRun and compactCalls > 0, 'după start cu viteză: interfața minimizată')
+car.speedKmh = 0; car.isInPit = true
+car.position = vec3(0, 0, p0z - 300); placeFront(p0z - 298)
+local c0 = compactCalls
+frames(20)
+check(not appRef.onRun and compactCalls == c0 and appRef.warmState == 'pit' and #tyreCalls > n2, 'back to pits: interfața revine mare, încălzirea repornește (Run 2)')
+car.isInPit = false
+physics.setTyresTemperature = function () error('restricționat') end
+frames(20)
+check(true, 'API de fizică indisponibil: fără eroare în aplicație')
+physics.setTyresTemperature = function (carIndex, wheel, temp) table.insert(tyreCalls, { carIndex, wheel, temp }) end
 
 -- ── Faza 2: mod LIVE cu server simulat (web.request din CSP înlocuit) ──
 local reqs = {}

@@ -13,6 +13,7 @@ local function read()
     position = V.from(car.position),
     speedKmh = car.speedKmh,
     steerDeg = car.steer,                 -- unitatea exactă de verificat în joc (vezi checklist)
+    isInPit = car.isInPit == true,        -- mașina parcată în boxă (după „back to pits”)
   }
   local w = car.wheels
   if w ~= nil then
@@ -21,6 +22,8 @@ local function read()
       s.frontContact = { V.from(fl.contactPoint), V.from(fr.contactPoint) }
       s.frontHub = { V.from(fl.position), V.from(fr.position) }
       s.rearContact = { V.from(w[2].contactPoint), V.from(w[3].contactPoint) }
+      s.tyreOptimum = {}
+      for i = 0, 3 do s.tyreOptimum[i] = w[i] and tonumber(w[i].tyreOptimumTemperature) or nil end
     end
   end
   if car.aabbSize and car.aabbCenter then

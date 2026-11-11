@@ -19,6 +19,7 @@ local Client = require('src/live/client')
 local LiveModel = require('src/live/live_model')
 local Departure = require('src/live/departure')
 local UiSafetyLive = require('src/ui_safety_live')
+local Warm = require('src/warm_tyres')
 
 local sim = ac.getSim()
 local function now() return os.preciseClock() end
@@ -53,6 +54,8 @@ local app = {
   procedure = Procedure.new(),
   result = { state = A.State.NO_CONFIG },
   draft = nil,
+  warm = Warm.new(C.WARM_TYRES), warmState = 'off',
+  onRun = false,            -- după plecare: interfața minimizată până la „back to pits”
   goFlashUntil = -1, lastGoAt = nil, departedAfterGo = false, alignedThisCycle = false, earlyMoveUntil = -1,
 }
 
@@ -253,6 +256,17 @@ function script.update(dt)
 
   local speed = app.sample and app.sample.speedKmh or 0
 
+  -- Încălzirea anvelopelor până la linia de start activă (aceeași linie ca alinierea).
+  local startP0 = app.activeCfg and app.activeCfg.line.p0 or nil
+  if not suspended then app.warmState = app.warm:update(dt, app.sample, startP0, Warm.cspApply) end
+
+  -- Minimizare în manșă: după ce a trecut de linie cu viteză; revine mare în boxe.
+  local m = app.result and app.result.measure
+  if app.sample and app.sample.isInPit then app.onRun = false
+  elseif not app.onRun and m and m.alongLine >= C.ON_RUN_PAST_LINE_M and speed >= C.ON_RUN_MIN_SPEED_KMH and math.abs(m.lateral or 0) <= 6 then
+    app.onRun = true
+  end
+
   if app:isLive() then
     app.client:update()
     -- Plecare / ieșire din zonă: raport (dovadă) trimis la Race Control; nu este timing oficial.
@@ -318,7 +332,7 @@ local function context(lv)
   -- Fără :upper(): string.upper din Lua nu tratează diacriticele (UTF-8).
   local title = app.track.name ~= '' and app.track.name or app.track.id
   local layout = app.track.layout ~= '' and (' · ' .. app.track.layout) or ''
-  local route = cfg and (' · ' .. cfg.label) or ' · necalibrat'
+  local route = (cfg and (' · ' .. cfg.label) or ' · necalibrat') .. (app.warmState ~= 'off' and (' · ' .. (Warm.LABEL[app.warmState] or '')) or '')
   if app:isLive() then
     local mode = storage.mode == 'safety' and 'SAFETY CAR · LIVE' or 'PILOT · LIVE'
     local connected = lv and lv.connection == 'CONECTAT'
@@ -360,8 +374,18 @@ local function safetyLive(t, lv)
   end
 end
 
+local function compact(lv)
+  local warm = Warm.LABEL[app.warmState] or ''
+  local label = 'DRS · ÎN MANȘĂ'
+  if lv and lv.phase == 'HOLD' then label = 'DRS · HOLD' end
+  return { label = label, sub = 'Interfața revine la „back to pits” · ' .. warm, ok = not (lv and lv.phase == 'HOLD') }
+end
+
 function script.windowMain(dt)
   local t = now()
+  if app.onRun and storage.mode == 'driver' then
+    return UiDriver.drawCompact(compact(app:isLive() and app:liveModel(t) or nil))
+  end
   if app:isLive() then
     local lv = app:liveModel(t)
     if storage.mode == 'safety' then return safetyLive(t, lv) end

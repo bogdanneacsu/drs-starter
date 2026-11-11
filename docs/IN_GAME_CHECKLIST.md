@@ -86,3 +86,11 @@ Notează pentru fiecare punct: OK / EȘUAT / observații, plus captură de ecran
 - [ ] FPS cu LIVE activ: ____ (fără diferență vizibilă față de demo).
 
 Checklist-ul complet multi-server este în `docs/PHASE2_OPERATIONS.md` §6.
+
+## 13. Versiunea 0.3.0
+- [ ] Zona verde are 35 cm și te poți așeza ușor pe ea (linie capturată din nou).
+- [ ] În boxe: titlul arată „ÎNCĂLZIRE ACTIVĂ (BOXE)”; temperatura anvelopelor rămâne la optim până aproape de start (verifică în aplicația CSP de temperaturi).
+- [ ] La 20 m de linia de start: „ÎNCĂLZIRE OPRITĂ”.
+- [ ] Pe serverul online: încălzirea funcționează sau apare „ÎNCĂLZIRE INDISPONIBILĂ PE ACEST SERVER” (notează care).
+- [ ] După start: interfața devine o bandă mică și nu acoperă drumul.
+- [ ] „Back to pits”: interfața revine mare și încălzirea repornește pentru Run 2.
