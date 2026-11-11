@@ -1,4 +1,4 @@
-# DRS Starter — Instalare, configurare și calibrare
+# DRS Starter — Instalare și configurare
 
 > Implicit aplicația pornește în **modul demo local** (Faza 1): fără rețea; countdown-ul de 40 s este doar demonstrativ și **nu este un start oficial**. Modul **LIVE (Race Control)** din Faza 2 se activează din setări după împerechere; vezi §8 și `docs/PHASE2_OPERATIONS.md`.
 
@@ -17,38 +17,21 @@
    Calea finală a manifestului trebuie să fie `...\assettocorsa\apps\lua\DRSStarter\manifest.ini`. Numele folderului trebuie să rămână `DRSStarter`, pentru că fișierul principal se numește `DRSStarter.lua`.
 3. Pornește o sesiune (Practice offline este suficient).
 4. În joc, deschide bara de aplicații (marginea dreaptă a ecranului) și pornește **DRS Starter**. Fereastra se poate muta și redimensiona; conținutul se scalează după lățime.
-5. Butonul ⚙ din bara ferestrei deschide **setările** (mod, countdown, calibrare, debug).
+5. Butonul ⚙ din bara ferestrei deschide **setările** (conectare Race Control, countdown demo, ruta, debug).
 
-Dezinstalare: șterge folderul `apps\lua\DRSStarter`. Calibrările locale sunt în `DRSStarter\data\starts.local.json`; salvează fișierul înainte dacă vrei să le păstrezi.
+Dezinstalare: șterge folderul `apps\lua\DRSStarter`.
 
-## 3. Moduri
+## 3. Ce face aplicația piloților
 
-- **Pilot (Driver Mode):** ghid de aliniere, distanță până la țintă, stare (roți în zonă / staționar / direcție), countdown local 40 s, progres demo, avertismente și panoul „Exemplu poziție” (se poate ascunde din setări; fereastra are 760×446 cu panoul, 760×346 fără).
-- **Safety Car** în modul demo: stare, „Confirmă sosirea la finish”, HOLD / Reluare, Reset demo, jurnal local. Nimic nu este trimis nicăieri.
+- **Driver Mode** (singurul mod): ghid de aliniere, distanță până la țintă, stare (roți în zonă / staționar / direcție), countdown, avertismente și panoul „Exemplu poziție” (se poate ascunde din setări).
+- **Safety Car** și **captura liniilor de start** sunt doar în aplicația organizatorului, `DRSOrganizer` (vezi `DRSOrganizer/README.md`).
 
-Modul se alege din setări și se păstrează între sesiuni.
+## 4. Liniile de start (de la 0.3.0)
 
-## 4. Calibrarea unei linii de start
-
-Configurațiile sunt per **traseu + layout + rută**. Fiecare rută (inclusiv sensul invers) are propria calibrare.
-
-### Varianta A — din nodurile traseului (dacă există)
-1. Condu până lângă start, cu mașina orientată în sensul rutei.
-2. Setări → alege ruta (Urcare / Sens invers / Alt start) → **Propune din nodurile traseului**.
-3. Dacă traseul are `AC_AB_START_L/R`, aplicația creează linia și desenează în lume: **linia albă** = linia de start, **linia portocalie** = ținta axei față, **zona verde** = toleranța.
-4. Verifică vizual că linia albă coincide cu linia de start a traseului. Dacă nu, folosește varianta B.
-
-### Varianta B — captură manuală
-1. Oprește mașina **dreaptă**, cu **roțile din față exact pe linia de start**.
-2. Setări → alege ruta → **Capturează linia (roți față pe linie)**.
-3. Nu mișca mașina 1 s. Aplicația mediază poziția și afișează dispersia. Captura este refuzată dacă mașina se mișcă sau dacă roțile nu pot fi citite.
-4. Ținta implicită este la **30 cm în spatele liniei**.
-
-### Ajustare parametri
-În setări, pentru configurația activă: țintă față de linie, toleranță spate/față, orientare maximă, bracare maximă (0 = dezactivat), lățimea liniei → **Aplică și salvează**. Valorile implicite (30 cm în spate, ±10 cm, 8°, < 0,5 km/h timp de 1 s) **nu sunt validate în joc**.
-
-### Distribuirea calibrării către piloți
-Calibrarea organizatorului se află în `data\starts.local.json`. Pentru a o livra tuturor piloților, copiază conținutul listei `starts` în `data\starts.json` din pachetul distribuit. O calibrare locală cu același `id` are prioritate față de cea livrată.
+- În **LIVE** aplicația folosește **doar** liniile de pe site (admin → **Linii de start**), primite prin conexiunea cu Race Control. Fișierele locale sunt ignorate, iar setările nu mai au calibrare sau toleranțe: pilotul nu poate muta linia și nu poate lărgi zona verde.
+- Până vin liniile de pe site, aplicația arată „Aștept linia de start de la Race Control…” și nu dă niciodată verde.
+- În **demo local** se folosesc liniile livrate cu aplicația (`data\starts.json`), doar pentru exercițiu.
+- Organizatorul capturează linia cu DRS Organizer, apoi **Trimite pe site** (cont de director de cursă) sau lipește JSON-ul în admin → Linii de start. Pe site o linie se poate dezactiva; aplicațiile o pierd la următoarea sincronizare.
 
 ## 5. Format `starts.json`
 
@@ -59,7 +42,7 @@ Calibrarea organizatorului se află în `data\starts.local.json`. Pentru a o liv
     "id": "ranca_transalpina/urcare/urcare",
     "track": "ranca_transalpina", "layout": "urcare", "route": "urcare", "label": "Urcare",
     "line": { "p0": [x, y, z], "forward": [fx, 0, fz], "width_m": 8 },
-    "target": { "offset_m": -0.30, "tol_back_m": 0.10, "tol_fwd_m": 0.10,
+    "target": { "offset_m": -0.30, "tol_back_m": 0.175, "tol_fwd_m": 0.175,
                 "max_lateral_m": 4, "max_heading_deg": 8, "max_steer_deg": 0 },
     "stationary": { "max_speed_kmh": 0.5, "hold_s": 1.0, "max_drift_m": 0.02 },
     "approach_radius_m": 80
@@ -70,7 +53,7 @@ Calibrarea organizatorului se află în `data\starts.local.json`. Pentru a o liv
 
 ## 6. Countdown local
 
-Repetă 40 → 1 → „0 · GO (DEMO)” → 40. Se calculează din timpul scurs (ceas monoton), deci nu are drift. Pauză / Reia / Repornește din setări. După reîncărcarea aplicației continuă din aceeași fază (dacă ancora are sub 1 oră); o pauză nu se păstrează la reîncărcare.
+Repetă 40 → 1 → „0 · GO (DEMO)” → 40. Se calculează din timpul scurs (ceas monoton), deci nu are drift. Pauză / Reia / Repornește din setări (doar în demo). După reîncărcarea aplicației continuă din aceeași fază (dacă ancora are sub 1 oră); o pauză nu se păstrează la reîncărcare.
 
 ## 7. Depanare
 
@@ -84,7 +67,7 @@ Repetă 40 → 1 → „0 · GO (DEMO)” → 40. Se calculează din timpul scur
 2. Introdu adresa serverului DRS (`https://…`) și numele dispozitivului → **Împerechează**.
 3. Pe site: **Profilul meu → DRS Starter** → introdu codul afișat → Aprobă. Aplicația se conectează singură.
 4. Driver Mode arată ora ta de start (ora serverului), countdown-ul până la fereastră și **GO** doar când fereastra e deschisă, datele sunt proaspete și ești aliniat. Fără răspuns de la server mai mult de 4 s: **CONEXIUNE PIERDUTĂ**, fără GO.
-5. Safety Car Mode (cont cu rolul `safety_car`): alegi clasa, „Confirmă sosirea la finish” (două apăsări în 4 s), HOLD și Reluare.
+5. Linia de start pentru traseul curent vine de pe site la prima sincronizare (și din nou doar când organizatorul o schimbă).
 6. Dacă ai ratat startul: eliberează zona de start și mergi la boxe; primești o singură nouă oră, la coada cozii.
 
 Tokenul se poate revoca de pe site. „Deconectează acest dispozitiv” îl șterge din aplicație.

@@ -15,7 +15,7 @@ Aplicație CSP Lua locală. **Nu se distribuie piloților.** Copiază folderul `
    tempOffset = 0
    ```
    Linkul, raza și abaterea de temperatură se setează în fereastra Safety Car → ⚙ Setări.
-4. **Copiază JSON pentru site** pune în clipboard linia completă (punct, direcție, lățime, țintă de aliniere), în formatul `starts.json` folosit de DRS Starter.
+4. **Trimite pe site** salvează linia direct în admin → Linii de start (contul împerecheat are nevoie de rolul `race_director`). Succesul apare doar după confirmarea serverului; DRS Starter o primește la următoarea sincronizare. Alternativ, **Copiază JSON pentru site** pune în clipboard linia completă (punct, direcție, lățime, țintă de aliniere), în formatul `starts.json`, de lipit în admin → Linii de start.
 5. După captură, aplicația arată în timp real dacă mașina e aliniată față de linia capturată (țintă implicită: roțile față la 30 cm în spatele liniei, ±10 cm).
 
 Istoricul capturilor (ultimele 50) rămâne în `DRSOrganizer\data\captures.json`.

@@ -9,7 +9,6 @@ local Countdown = require('src/countdown')
 local A = require('src/alignment')
 local SC = require('src/start_config')
 local Cal = require('src/calibration')
-local P = require('src/procedure_local')
 
 local passed, failed, current = 0, 0, ''
 local function test(name, fn)
@@ -248,17 +247,6 @@ test('linie din nodurile de start, orientată după mașină', function()
   near(l.p0.z, 50); near(l.width_m, 8); near(l.forward.z, 1)
   local r = assert(Cal.lineFromNodes(V.new(-4, 0, 50), V.new(4, 0, 50), V.new(0, 0, -1)))
   near(r.forward.z, -1)
-end)
-
--- ───────────────────────── Safety Car local ─────────────────────────
-print('Safety Car (local demo)')
-test('confirmare idempotentă, HOLD și reluare', function()
-  local p = P.new()
-  eq(p:snapshot().phase, P.Phase.SC_ON_COURSE)
-  truthy(p:confirmSafetyCarFinish(1)); truthy(not p:confirmSafetyCarFinish(2), 'a doua apăsare')
-  truthy(p:hold(3)); truthy(not p:confirmSafetyCarFinish(4), 'blocat în HOLD')
-  truthy(p:release(5)); eq(p:snapshot().phase, P.Phase.SC_AT_FINISH)
-  eq(p:snapshot().isLocalDemo, true)
 end)
 
 -- ───────────────────────── Încălzire anvelope ─────────────────────────

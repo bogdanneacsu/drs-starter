@@ -111,7 +111,23 @@ end
 
 -- ───────────────────────── Race Control ─────────────────────────
 
-app.client = Client.new({ storage = storage, now = now, json = JSON, appVersion = 'organizer-' .. ORGANIZER_VERSION, cspBuild = app.cspBuild })
+--- „Trimite pe site”: salvează linia activă în admin → Linii de start (doar cont de director de cursă).
+--- Succes afișat DOAR după confirmarea serverului; aplicațiile piloților o primesc la următoarea sincronizare.
+function app:sendToSite()
+  if not self.last then return end
+  local c = self.client
+  if not c:paired() or not c:baseUrl() then self.message = { ok = false, text = 'Conectează mai întâi aplicația la site (⚙ Setări).' }; return end
+  local sent = c:action('start_line', { line = self.last.entry, reason = 'trimis din DRS Organizer' }, function (ok, r)
+    if ok then
+      self.message = { ok = true, text = string.format('Linia „%s” este pe site (versiunea %s).', tostring(r.id), tostring(r.version)) }
+    else
+      self.message = { ok = false, text = 'Linia NU a fost salvată pe site: ' .. tostring(c.feedback and c.feedback.text or 'eroare') }
+    end
+  end)
+  if sent then self.message = { ok = true, text = 'Se trimite linia pe site…' } end
+end
+
+app.client = Client.new({ storage = storage, now = now, json = JSON, appVersion = 'organizer-' .. ORGANIZER_VERSION, cspBuild = app.cspBuild, mode = 'safety' })
 app.client.statusProvider = function () return { mode = 'safety', track = app.track.id } end
 
 -- ───────────────────────── Ciclu de viață ─────────────────────────
@@ -191,6 +207,8 @@ function script.windowCoords(dt)
     if ui.button('Copiază pentru ACSM (warm_tyres)') then app:copy('acsm') end
     ui.sameLine()
     if ui.button('Copiază JSON pentru site') then app:copy('json') end
+    ui.sameLine()
+    if ui.button(app.client.actionInFlight == 'start_line' and 'Se trimite…' or 'Trimite pe site') and not app.client.actionInFlight then app:sendToSite() end
     ui.pushFont(ui.Font.Monospace)
     ui.textWrapped(X.acsmBlock(last.capture, { scriptUrl = storage.scriptUrl, stopRadius = storage.stopRadius, tempOffset = storage.tempOffset }))
     ui.popFont()

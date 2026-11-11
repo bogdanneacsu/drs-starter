@@ -34,7 +34,8 @@ Cerere:
   "status": { "seq": 812, "alignment": "ALIGNED", "aligned": true, "in_zone": true,
               "speed_kmh": 0.1, "d_m": -0.02, "track": "…", "mode": "driver" },
   "events": [ { "seq": 813, "type": "departure", "server_time_ms": 1793750400123,
-                "slot_id": 41, "schedule_version": 2, "data": { "aligned": true, "speed_kmh": 4.2, "d_m": 1.6 } } ]
+                "slot_id": 41, "schedule_version": 2, "data": { "aligned": true, "speed_kmh": 4.2, "d_m": 1.6 } } ],
+  "lines": { "track": "ks_hill", "layout": "full", "version": "3f9c0a1b2c4d5e6f" }
 }
 ```
 - `event_id`/`class_id` contează doar în modul `safety` (alegerea clasei; dacă e o singură clasă activă se alege automat). Pilotul este legat de înscrierea lui de către server.
@@ -59,6 +60,8 @@ Răspuns (comun):
   "server_time_ms": 1793750400061
 }
 ```
+Liniile de start (de la 0.3.0): dacă cererea are `lines.track`, răspunsul are `start_lines`. Dacă `lines.version` este versiunea curentă: `{"version": "…", "unchanged": true}`. Altfel lista completă a liniilor active pentru traseu + layout: `{"version": "…", "starts": [ … intrări în formatul starts.json … ]}` (listă goală = nicio linie pe site). În LIVE, DRS Starter folosește **doar** aceste linii, ținute în memorie.
+
 `server_received_ms` (t1) și `server_time_ms` (t2, scris ultimul) formează, împreună cu t0/t3 din client, proba de ceas NTP.
 
 Partea pilotului (`mode=driver`) — `me`:
@@ -82,6 +85,8 @@ Partea Safety Car (`mode=safety`): `choices` (clase active), `context`, `procedu
 | `POST /procedure/confirm-finish` | `event_id`, `class_id`, `run` (1/2), `request_id` | Creează procedura și programul. Idempotent: a doua confirmare întoarce aceeași procedură cu `already_confirmed:true` (unic pe etapă+clasă+manșă, cu blocare pe rând și audit `starter.finish.duplicate`). |
 | `POST /procedure/hold` | `event_id`, `class_id`, `reason?` | HOLD: nicio fereastră nu mai autorizează plecarea; `schedule_version++`. |
 | `POST /procedure/resume` | `event_id`, `class_id` | Reluare: sloturile rămase se mută la ≥ `max(acum + resume_lead, slotul anterior + interval)`; niciodată mai devreme decât erau. |
+
+| `POST /start-lines` | `line` (o intrare starts.json), `reason?` | DRS Organizer „Trimite pe site”. Cere dreptul `direct race`. Validare identică cu aplicația; înlocuiește linia cu același traseu + layout + rută (`version++`), audit `starter.start_line.saved`. Răspuns `{saved, id, version, line}`; linie invalidă → `409 invalid_line`. |
 
 Erori `409 {"error": "...", "message": "...", "details": {...}}`: `context_not_active`, `run_mismatch`, `invalid_run`, `run_not_active`, `starter_lead_not_configured`, `queue_not_built`, `queue_empty`, `no_procedure`, plus erorile de stare ale procedurii. `403` fără permisiune. Aplicația consideră comanda reușită **doar la HTTP 200**.
 

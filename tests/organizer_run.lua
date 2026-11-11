@@ -208,5 +208,26 @@ frames(2)
 clickNext = {}
 check(true, 'Safety Car neîmperecheat: confirmarea nu trimite nimic și nu dă eroare')
 
+-- „Trimite pe site”: fără conexiune nu trimite nimic; conectat → POST /start-lines, succes doar după răspunsul serverului.
+local reqs = {}
+web = { request = function (method, url, headers, body, cb) table.insert(reqs, { url = url, body = body, cb = cb }) end }
+clickNext = { ['Trimite pe site'] = true }; frames(1); clickNext = {}
+check(#reqs == 0, 'neconectat: „Trimite pe site” nu trimite nimic')
+store.serverUrl, store.token = 'https://drs.example', 'drs_' .. string.rep('t', 56)
+frames(1)
+for i = #reqs, 1, -1 do if reqs[i].url:find('/sync', 1, true) then table.remove(reqs, i) end end
+clickNext = { ['Trimite pe site'] = true }; frames(1); clickNext = {}
+local up
+for _, r in ipairs(reqs) do if r.url:find('/api/starter/v1/start-lines', 1, true) then up = r end end
+local sentLine = up and JSON.parse(up.body).line
+check(up ~= nil and sentLine and sentLine.track == 'test_hillclimb' and sentLine.line and #sentLine.line.p0 == 3, 'conectat: linia activă trimisă la /api/starter/v1/start-lines')
+if up then up.cb(nil, { status = 403, body = JSON.stringify({ message = 'Doar directorul de cursă poate salva linii de start.' }), headers = {} }) end
+clickNext = { ['Trimite pe site'] = true }; frames(1); clickNext = {}
+local up2
+for _, r in ipairs(reqs) do if r.url:find('/start-lines', 1, true) and r ~= up then up2 = r end end
+if up2 then up2.cb(nil, { status = 200, body = JSON.stringify({ saved = true, id = 'test_hillclimb/-/urcare', version = 2 }), headers = {} }) end
+check(up2 ~= nil, 'refuz 403 afișat, a doua trimitere acceptată de server')
+frames(1)
+
 print(failures == 0 and '\nORGANIZER OK' or ('\n' .. failures .. ' EȘUATE'))
 os.exit(failures == 0 and 0 or 1)

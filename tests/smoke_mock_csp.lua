@@ -145,9 +145,12 @@ local origDraw = UiSettings.draw
 UiSettings.draw = function (app) appRef = app; return origDraw(app) end
 script.windowSettings(0.016)
 check(appRef ~= nil, 'obiectul aplicației accesibil')
-appRef:lineFromTrackNodes()
-check(appRef.activeCfg ~= nil and appRef.activeCfg.source == 'track_nodes', 'configurație din AC_AB_START_L/R creată și activă')
-check(files[appDir .. '/data/starts.local.json'] ~= nil, 'calibrarea salvată în data/starts.local.json')
+-- Demo local: linia livrată cu aplicația (data/starts.json), la z = 0; ținta la z = -0.30.
+files[appDir .. '/data/starts.json'] = JSON.stringify({ schema = 1, starts = { { id = 'test_hillclimb/-/urcare', track = 'test_hillclimb', layout = '', route = 'urcare',
+  label = 'Urcare', line = { p0 = { 0, 0, 0 }, forward = { 0, 0, 1 }, width_m = 8 } } } })
+appRef:reloadConfigs()
+check(appRef.activeCfg ~= nil and appRef.activeCfg.origin == 'shipped', 'demo: linia din data/starts.json este activă')
+check(appRef.startCapture == nil and appRef.applyDraft == nil and appRef.saveLocal == nil, 'aplicația piloților nu mai are calibrare / salvare locală')
 
 placeFront(-0.30)
 frames(90)
@@ -156,29 +159,14 @@ placeFront(-0.05)
 frames(2)
 check(appRef.result.state == A.State.TOO_FAR_FORWARD and appRef.result.alignmentLost, 'prea în față + avertisment pierdere aliniere')
 
--- Captură manuală: roți pe linie la z = 2 → ținta la z = 1.70.
-placeFront(2.0)
-store.captureRoute = 'invers'
-appRef:startCapture()
-frames(80)
-check(appRef.capture == nil and appRef.activeCfg.source == 'manual_capture', 'captură manuală finalizată: ' .. tostring(appRef.calibrationMessage))
-placeFront(1.70)
-frames(90)
-check(appRef.result.state == A.State.ALIGNED, 'aliniat pe linia capturată manual')
-
 -- Countdown: salt de 95 s.
 clock = clock + 95
 frames(1)
 check(appRef.cd.display >= 1 and appRef.cd.display <= 40, 'countdown valid după salt mare (' .. appRef.cd.display .. ')')
 
--- Safety Car Mode: confirmare.
-store.mode = 'safety'
-clickNext = { ['##confirm'] = true }
-frames(1)
-clickNext = {}
-check(appRef.procedure:snapshot().phase == 'SC_AT_FINISH', 'Safety Car: confirmare locală înregistrată')
-clickNext = { ['##hold'] = true }; frames(1); clickNext = {}
-check(appRef.procedure:snapshot().phase == 'HOLD', 'Safety Car: HOLD local')
+-- Un mod 'safety' rămas în storage dintr-o versiune veche nu schimbă nimic: aplicația este doar pentru piloți.
+store.mode = 'safety'; frames(2)
+check(appRef.client.statusProvider().mode == 'driver' and appRef.client:mode() == 'driver', 'fără mod Safety Car în aplicația piloților')
 store.mode = 'driver'
 
 -- Replay → suspendat.
@@ -240,9 +228,17 @@ car.speedKmh = 0
 store.source, store.serverUrl, store.token, store.mode = 'live', 'https://drs.example', 'drs_' .. string.rep('t', 56), 'driver'
 frames(1)
 check(#reqs == 1 and reqs[1].url:find('/api/starter/v1/sync', 1, true) and reqs[1].headers.Authorization:find('Bearer', 1, true), 'live: o cerere /sync cu token, fără blocare')
+check(appRef.activeCfg == nil and appRef.result.state ~= A.State.ALIGNED, 'live: linia livrată local este ignorată până vin liniile de pe site')
+check(reqs[1].body:find('test_hillclimb', 1, true) ~= nil, 'live: cererea conține traseul pentru liniile de start')
 local t0 = clock
-respond(200, serverState('SCHEDULED'))
+-- Linia de pe site (z = 2, ținta la z = 1.70) înlocuiește complet linia locală.
+local siteLine = { id = 'test_hillclimb/-/urcare', track = 'test_hillclimb', layout = '', route = 'urcare', label = 'Urcare (site)',
+  line = { p0 = { 0, 0, 2 }, forward = { 0, 0, 1 }, width_m = 8 }, target = { offset_m = -0.3, tol_back_m = 0.175, tol_fwd_m = 0.175 } }
+respond(200, serverState('SCHEDULED', { start_lines = { version = 'v1abc', starts = { siteLine } } }))
+check(appRef.activeCfg ~= nil and appRef.activeCfg.origin == 'site' and appRef.activeCfg.line.p0.z == 2, 'live: linia de pe site este activă')
 frames(90)
+check(appRef.result.state == A.State.ALIGNED, 'live: aliniat pe linia de pe site')
+check(reqs[1] and reqs[1].body:find('v1abc', 1, true) ~= nil, 'live: următoarea cerere trimite versiunea liniilor primite')
 local lv = appRef:liveModel(clock)
 check(lv.phase == 'SCHEDULED' and lv.countdownS and lv.countdownS > 0 and not lv.go, 'live: countdown spre fereastră (' .. tostring(lv.countdownS) .. ' s), fără GO')
 -- Serverul răspunde la fiecare cerere; ceasul local avansează în fereastră.
@@ -271,18 +267,6 @@ frames(2)
 clock = clock + 3
 frames(2)
 check(#reqs == 1, 'live: cerere blocată abandonată după timeout, sincronizarea repornește')
--- Safety Car LIVE: confirmare în doi pași, trimisă la server.
-store.mode = 'safety'
-frames(12)
-while #reqs > 0 do respond(200, { schema = 1, server_received_ms = SMS, server_time_ms = SMS + 9000, stale_after_ms = 4000, poll_after_ms = 1000, acks = {},
-  mode = 'safety', identity = { can_confirm_finish = true, can_hold = true }, context = { event_id = 1, class_id = 2, run = 1, event = 'E', class = 'C', phase = 'run1' },
-  can_confirm_now = true, blockers = {}, queue = {}, choices = {} }) end
-clickNext = { ['##confirm'] = true }; frames(1); clickNext = {}
-check(#reqs == 0 or not reqs[#reqs].url:find('confirm-finish', 1, true), 'Safety Car: primul clic doar armează confirmarea')
-clickNext = { ['##confirm'] = true }; frames(1); clickNext = {}
-local conf
-for _, r in ipairs(reqs) do if r.url:find('confirm-finish', 1, true) then conf = r end end
-check(conf ~= nil, 'Safety Car: al doilea clic trimite confirmarea la server')
 store.mode, store.source = 'driver', 'demo'
 frames(2)
 check(true, 'revenire la modul demo local fără erori')

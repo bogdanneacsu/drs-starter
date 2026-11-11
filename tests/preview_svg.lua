@@ -100,7 +100,7 @@ if scenario ~= 'noconfig' then
   app.trackConfigs, app.activeCfg = { cfg }, cfg
 end
 if scenario == 'back' then front(-0.62) else front(-0.30) end
-if scenario == 'safety' or scenario == 'safety_live' then store.mode = 'safety' end
+
 local live = scenario:match('^live_') or scenario == 'safety_live'
 if live then store.source, store.serverUrl, store.token = 'live', 'https://drs.example', 'drs_' .. string.rep('t', 56) end
 for _ = 1, 100 do clock = clock + 0.016; script.update(0.016) end
