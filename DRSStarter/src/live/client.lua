@@ -35,13 +35,20 @@ end
 function M.new(o)
   local c = setmetatable({
     storage = o.storage, http = o.http or M.cspHttp, now = o.now, json = o.json,
-    appVersion = o.appVersion, cspBuild = o.cspBuild,
+    appVersion = o.appVersion, cspBuild = o.cspBuild, fixedMode = o.mode,
     timeSync = TimeSync.new(), state = nil, stateAt = nil, lastError = nil, failures = 0,
     inFlight = false, nextPollAt = 0, actionInFlight = false, pairing = nil, feedback = nil,
     pending = {}, statusProvider = nil,
+    linesProvider = nil, onStartLines = nil, lines = nil, -- liniile de start de pe site (doar în memorie)
   }, Client)
   c:_loadPending()
   return c
+end
+
+--- Modul fix al aplicației (o.mode): DRS Starter = 'driver', DRS Organizer = 'safety'. Fără o.mode: storage.mode.
+function Client:mode()
+  local m = self.fixedMode or self.storage.mode
+  return m == 'safety' and 'safety' or 'driver'
 end
 
 function Client:paired() return type(self.storage.token) == 'string' and #self.storage.token > 20 end
@@ -88,7 +95,7 @@ end
 function Client:pollNow() self.nextPollAt = 0 end
 
 function Client:_context()
-  if self.storage.mode == 'safety' then
+  if self:mode() == 'safety' then
     local e, c = tonumber(self.storage.scEventId), tonumber(self.storage.scClassId)
     return e and e > 0 and e or nil, c and c > 0 and c or nil
   end
@@ -111,8 +118,9 @@ function Client:update()
   local sent = {}
   for i, e in ipairs(self.pending) do sent[i] = e end
   local body = self.json.stringify({
-    mode = self.storage.mode == 'safety' and 'safety' or 'driver', event_id = eventId, class_id = classId,
+    mode = self:mode(), event_id = eventId, class_id = classId,
     client = { app_version = self.appVersion, csp_build = self.cspBuild }, status = status, events = #sent > 0 and sent or nil,
+    lines = self:_linesRequest(),
   })
   local t0 = t
   self.http('POST', self:baseUrl() .. '/api/starter/v1/sync', self:_headers(true), body, function (err, code, resp)
@@ -131,11 +139,28 @@ function Client:update()
     if not st then return self:_fail(t3, 'răspuns invalid: ' .. tostring(why)) end
     self.timeSync:add(t0, st.server_received_ms, st.server_time_ms, t3)
     self:_ack(st.acks)
+    self:_takeLines(st.start_lines)
     self.state, self.stateAt, self.lastError, self.failures = st, t3, nil, 0
     local wait = (type(st.poll_after_ms) == 'number' and st.poll_after_ms or 5000) / 1000
     self.nextPollAt = t3 + math.max(0.5, math.min(10, wait))
     if #self.pending > 0 then self.nextPollAt = math.min(self.nextPollAt, t3 + 1) end
   end)
+end
+
+--- Cererea de linii: traseul curent + versiunea deja primită (serverul trimite lista doar dacă s-a schimbat).
+function Client:_linesRequest()
+  local p = self.linesProvider and self.linesProvider()
+  if type(p) ~= 'table' or type(p.track) ~= 'string' or p.track == '' then return nil end
+  local key = p.track .. '|' .. (p.layout or '')
+  if self.lines and self.lines.key ~= key then self.lines = nil end
+  return { track = p.track, layout = p.layout or '', version = self.lines and self.lines.version or nil }
+end
+
+function Client:_takeLines(sl)
+  if type(sl) ~= 'table' or type(sl.version) ~= 'string' or sl.unchanged or type(sl.starts) ~= 'table' then return end
+  local p = self.linesProvider and self.linesProvider() or {}
+  self.lines = { version = sl.version, starts = sl.starts, key = tostring(p.track) .. '|' .. tostring(p.layout or '') }
+  if self.onStartLines then self.onStartLines(self.lines) end
 end
 
 function Client:_ack(acks)
@@ -200,13 +225,13 @@ function Client:unpair()
   self.feedback = { ok = true, text = 'Dispozitiv deconectat local. Revocă-l și din „Profilul meu → DRS Starter”.' }
 end
 
--- ───────────── Acțiuni Safety Car (succes DOAR după confirmarea serverului) ─────────────
+-- ───────────── Acțiuni Safety Car / organizator (succes DOAR după confirmarea serverului) ─────────────
 
 function Client:action(kind, payload, done)
   if self.actionInFlight then return false end
   local base = self:baseUrl()
   if not base or not self:paired() then return false end
-  local path = ({ confirm = '/procedure/confirm-finish', hold = '/procedure/hold', resume = '/procedure/resume' })[kind]
+  local path = ({ confirm = '/procedure/confirm-finish', hold = '/procedure/hold', resume = '/procedure/resume', start_line = '/start-lines' })[kind]
   if not path then return false end
   self.actionInFlight = kind
   self.http('POST', base .. '/api/starter/v1' .. path, self:_headers(true), self.json.stringify(payload), function (err, code, resp)

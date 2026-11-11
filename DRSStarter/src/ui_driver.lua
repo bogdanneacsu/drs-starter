@@ -215,6 +215,20 @@ end
 
 --- model = {ctx, result, cfg, sample, countdown, goFlash, progressStep, warning, showExample, live?}
 --- `live` (Faza 2) = modelul din src/live/live_model.lua; absent = modul demo local din Faza 1.
+--- Vedere minimizată în timpul manșei: o bandă mică, restul ferestrei transparent, ca pilotul să vadă drumul.
+--- model = {label, sub, ok}
+M.COMPACT_W, M.COMPACT_H = 300, 40
+function M.drawCompact(model)
+  local ws = ui.windowSize()
+  U.setScale(ws.x / M.BASE_W)
+  U.panel(0, 0, M.COMPACT_W, M.COMPACT_H, Col.panelSoft)
+  U.rect(0, 0, 6, M.COMPACT_H, model.ok and Col.ok or Col.orange, Style.radius.sm)
+  U.text(model.label or 'DRS · ÎN MANȘĂ', 16, 14, 3, Col.white)
+  U.text(model.sub or '', 11, 14, 22, Col.grayLight, F.body)
+  ui.setCursor(U.v(0, M.COMPACT_H))
+  ui.dummy(vec2(1, 1))
+end
+
 function M.draw(model)
   local ws = ui.windowSize()
   local k = ws.x / M.BASE_W

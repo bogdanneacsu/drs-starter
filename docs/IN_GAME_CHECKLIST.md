@@ -52,21 +52,17 @@ Notează pentru fiecare punct: OK / EȘUAT / observații, plus captură de ecran
 - [ ] Pe un traseu fără noduri: mesaj clar, fără configurație greșită.
 - [ ] Captură manuală: dispersia raportată ≤ 1 cm; captura e refuzată dacă mașina se mișcă.
 - [ ] Rută inversă: captură separată, selectată automat când mașina e orientată invers lângă acel start.
-- [ ] Parametrii ajustați se păstrează după repornirea jocului.
 
 ## 8. Driver Mode
 - [ ] Toate stările de mai sus au text corect în română, cu diacritice.
 - [ ] „TRASEU NECALIBRAT” pe un traseu fără configurație.
 
-## 9. Safety Car Mode
-- [ ] Banda „LOCAL DEMO MODE” vizibilă permanent.
-- [ ] „Confirmă sosirea la finish” → stare „SOSIRE CONFIRMATĂ (LOCAL)” și mesaj că nu s-a creat nicio oră de start; a doua apăsare nu schimbă nimic.
-- [ ] HOLD / Reluare / Reset demo funcționează; jurnalul local se actualizează.
-- [ ] Butoanele se pot apăsa cu mouse-ul în timpul sesiunii (notează dacă e nevoie de control de pe volan).
+## 9. Safety Car (mutat în DRS Organizer)
+- [ ] În DRS Starter nu mai există mod Safety Car; comenzile sunt în fereastra „Safety Car” din DRS Organizer.
 
 ## 10. Reîncărcare
 - [ ] Reîncărcarea aplicației (din Lua Debug sau repornirea sesiunii) nu blochează jocul.
-- [ ] Calibrarea, modul și setările se păstrează; countdown-ul continuă din aceeași fază.
+- [ ] Setările se păstrează; countdown-ul demo continuă din aceeași fază; în LIVE linia de start revine de pe site.
 
 ## 11. Performanță și stabilitate
 - [ ] FPS cu și fără aplicație în aceeași scenă (contorul CSP): ____ / ____ (țintă: diferență < 1 %).
@@ -86,3 +82,18 @@ Notează pentru fiecare punct: OK / EȘUAT / observații, plus captură de ecran
 - [ ] FPS cu LIVE activ: ____ (fără diferență vizibilă față de demo).
 
 Checklist-ul complet multi-server este în `docs/PHASE2_OPERATIONS.md` §6.
+
+## 13. Versiunea 0.3.0
+- [ ] Zona verde are 35 cm și te poți așeza ușor pe ea (linie capturată din nou).
+- [ ] În boxe: titlul arată „ÎNCĂLZIRE ACTIVĂ (BOXE)”; temperatura anvelopelor rămâne la optim până aproape de start (verifică în aplicația CSP de temperaturi).
+- [ ] La 20 m de linia de start: „ÎNCĂLZIRE OPRITĂ”.
+- [ ] Pe serverul online: încălzirea funcționează sau apare „ÎNCĂLZIRE INDISPONIBILĂ PE ACEST SERVER” (notează care).
+- [ ] După start: interfața devine o bandă mică și nu acoperă drumul.
+- [ ] „Back to pits”: interfața revine mare și încălzirea repornește pentru Run 2.
+
+## 14. Linii de start de pe site (0.3.0)
+- [ ] DRS Organizer: captură → **Trimite pe site** cu contul de director → mesaj „Linia … este pe site (versiunea N)”. Cu un cont fără drept: refuz afișat, nimic salvat.
+- [ ] Admin → Linii de start arată linia; dezactivarea o scoate din aplicația piloților în câteva secunde.
+- [ ] DRS Starter în LIVE: fără linie pe site → „Race Control nu are o linie de start pentru acest traseu”, niciodată verde.
+- [ ] DRS Starter în LIVE: un `data\starts.json` modificat local nu schimbă nimic (linia rămâne cea de pe site).
+- [ ] Setările DRS Starter nu mai au calibrare, toleranțe sau mod Safety Car.

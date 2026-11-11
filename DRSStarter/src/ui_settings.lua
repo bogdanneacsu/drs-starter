@@ -1,4 +1,5 @@
--- Fereastra de setări (butonul ⚙ al ferestrei principale): mod, countdown local, calibrare, debug.
+-- Fereastra de setări (butonul ⚙ al ferestrei principale): conectare, countdown local, ruta, debug.
+-- Fără calibrare și fără toleranțe: linia și zona verde le stabilește organizatorul pe site (LIVE).
 -- Widget-uri ImGui standard, ca în aplicațiile oficiale CSP.
 local A = require('src/alignment')
 local CP = require('src/car_probe')
@@ -6,22 +7,10 @@ local C = require('src/config')
 
 local M = {}
 
-local ROUTES = { { 'urcare', 'Urcare (sens normal)' }, { 'invers', 'Sens invers' }, { 'alt', 'Alt start' } }
-
-local function slider(label, value, min, max, fmt)
-  return ui.slider(label, value, min, max, fmt)
-end
-
 ---@param app table obiectul aplicației din DRSStarter.lua
 function M.draw(app)
   local st = app.storage
 
-  ui.header('Mod interfață')
-  if ui.radioButton('Pilot (Driver Mode)', st.mode == 'driver') then st.mode = 'driver' end
-  ui.sameLine()
-  if ui.radioButton('Safety Car', st.mode == 'safety') then st.mode = 'safety' end
-
-  ui.separator()
   ui.header('Conectare Race Control (Faza 2)')
   if ui.radioButton('Demo local (fără rețea)', st.source ~= 'live') then st.source = 'demo' end
   ui.sameLine()
@@ -54,35 +43,28 @@ function M.draw(app)
   end
   if c.feedback and c.feedback.text then ui.textWrapped(c.feedback.text) end
   if c.lastError then ui.textColored('Ultima eroare: ' .. c.lastError, rgbm(0.98, 0.82, 0.07, 1)) end
-  if st.mode == 'safety' and c.state and type(c.state.choices) == 'table' then
-    ui.text('Clasa pentru Safety Car:')
-    for _, ch2 in ipairs(c.state.choices) do
-      local sel = tonumber(st.scEventId) == ch2.event_id and tonumber(st.scClassId) == ch2.class_id
-      if ui.radioButton(string.format('%s (manșa %s, %s)##sc%d_%d', tostring(ch2.label), tostring(ch2.run), tostring(ch2.phase), ch2.event_id, ch2.class_id), sel) then
-        st.scEventId, st.scClassId = ch2.event_id, ch2.class_id
-        c:pollNow()
-      end
+  if st.source ~= 'live' then
+    ui.separator()
+    ui.header('Countdown local de test (nu este programul oficial)')
+    if app.countdown.paused then
+      if ui.button('Reia') then app:countdownResume() end
+    else
+      if ui.button('Pauză') then app:countdownPause() end
     end
+    ui.sameLine()
+    if ui.button('Repornește de la ' .. C.LOCAL_COUNTDOWN_S) then app:countdownReset() end
   end
 
   ui.separator()
-  ui.header('Countdown local de test (nu este programul oficial)')
-  if app.countdown.paused then
-    if ui.button('Reia') then app:countdownResume() end
-  else
-    if ui.button('Pauză') then app:countdownPause() end
-  end
-  ui.sameLine()
-  if ui.button('Repornește de la ' .. C.LOCAL_COUNTDOWN_S) then app:countdownReset() end
-
-  ui.separator()
-  ui.header('Calibrare linie de start')
+  ui.header('Linia de start')
   ui.text(string.format('Traseu: %s   Layout: %s', app.track.id, app.track.layout ~= '' and app.track.layout or '—'))
+  ui.textWrapped(st.source == 'live' and 'Linia și zona verde vin de la Race Control (stabilite de organizator). Nu se pot modifica din aplicație.'
+    or 'Demo local: liniile livrate cu aplicația (data/starts.json). În LIVE se folosesc doar liniile de pe site.')
   local list = app.trackConfigs
   if #list == 0 then
-    ui.textColored('Nicio configurație pentru acest traseu/layout.', rgbm(0.98, 0.82, 0.07, 1))
+    ui.textColored('Nicio linie de start pentru acest traseu/layout.', rgbm(0.98, 0.82, 0.07, 1))
   else
-    ui.text('Configurații disponibile (ruta activă):')
+    ui.text('Rute disponibile (ruta activă):')
     if ui.radioButton('Automat (cea mai apropiată, în sensul mașinii)', st.preferredId == '') then
       st.preferredId = ''
       app:reloadConfigs()
@@ -96,43 +78,12 @@ function M.draw(app)
   end
   for _, e in ipairs(app.configErrors) do ui.textColored('Eroare: ' .. e, rgbm(0.81, 0.13, 0.16, 1)) end
 
-  ui.text('Rută pentru captura nouă:')
-  for _, r in ipairs(ROUTES) do
-    if ui.radioButton(r[2] .. '##route' .. r[1], st.captureRoute == r[1]) then st.captureRoute = r[1] end
-    ui.sameLine()
-  end
-  ui.newLine()
-
-  ui.textWrapped('Captură manuală: oprește mașina dreaptă, cu ROȚILE DIN FAȚĂ EXACT PE LINIA DE START, apoi apasă butonul. ' ..
-    'Aplicația mediază poziția timp de ' .. C.CAPTURE_DURATION_S .. ' s. Ținta implicită este la 30 cm în spatele liniei.')
-  if app.capture then
-    ui.text(string.format('Captură în curs… %d eșantioane', #app.capture.samples))
-  else
-    if ui.button('Capturează linia (roți față pe linie)') then app:startCapture() end
-    ui.sameLine()
-    if ui.button('Propune din nodurile traseului') then app:lineFromTrackNodes() end
-  end
-  if app.calibrationMessage then ui.textWrapped(app.calibrationMessage) end
-
   local cfg = app.activeCfg
   if cfg then
-    ui.separator()
-    ui.header('Parametri pentru „' .. cfg.label .. '” (valori inițiale, de calibrat în joc; se salvează local)')
     local t, s = cfg.target, cfg.stationary
-    local d = app.draft
-    d.offset_m = slider('##off', d.offset_m * 100, -150, 50, 'Țintă față de linie: %.0f cm') / 100
-    d.tol_back_m = slider('##tb', d.tol_back_m * 100, 2, 50, 'Toleranță în spate: %.0f cm') / 100
-    d.tol_fwd_m = slider('##tf', d.tol_fwd_m * 100, 2, 50, 'Toleranță în față: %.0f cm') / 100
-    d.max_heading_deg = slider('##hd', d.max_heading_deg, 2, 20, 'Orientare maximă: %.0f°')
-    d.max_steer_deg = slider('##sd', d.max_steer_deg, 0, 45, 'Bracare maximă: %.0f (0 = dezactivat)')
-    d.width_m = slider('##w', d.width_m, 2, 20, 'Lățime linie: %.1f m')
-    if ui.button('Aplică și salvează') then app:applyDraft() end
-    ui.sameLine()
-    if ui.button('Șterge această calibrare locală') then app:deleteLocal(cfg.id) end
-    ui.text(string.format('Actual: țintă %.0f cm, ±%.0f/%.0f cm, %.0f°, oprire < %.1f km/h timp de %.1f s',
+    ui.text(string.format('Zona verde: țintă %.0f cm, −%.1f / +%.1f cm, orientare max. %.0f°, oprire < %.1f km/h timp de %.1f s',
       t.offset_m * 100, t.tol_back_m * 100, t.tol_fwd_m * 100, t.max_heading_deg, s.max_speed_kmh, s.hold_s))
   end
-  ui.text('Fișier local: data/starts.local.json')
 
   ui.separator()
   if ui.checkbox('Desenează zona de start în lume', st.draw3D) then st.draw3D = not st.draw3D end
@@ -163,5 +114,4 @@ function M.draw(app)
   end
 end
 
-M.ROUTES = ROUTES
 return M

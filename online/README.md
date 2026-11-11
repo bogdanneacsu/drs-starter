@@ -5,6 +5,9 @@ Scripturile din acest folder **nu se instalează de piloți**. Serverul le trimi
 deci pilotul nu le poate schimba din aplicație.
 
 ## warm_tyres.lua
+
+> Din DRS Starter 0.3.0, încălzirea este inclusă în aplicație. Scriptul online rămâne pentru varianta în care serverul livrează totul (piloții nu instalează nimic) sau dacă fizica nu este permisă unei aplicații locale. Dacă ambele rulează, aplică aceeași temperatură (fără efect dublu).
+
 Ține anvelopele la temperatura optimă de la ieșirea din boxe până la `stopRadius` metri de linia de start.
 Se reactivează la „back to pits” (între Run 1 și Run 2).
 
