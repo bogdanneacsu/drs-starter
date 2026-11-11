@@ -1,0 +1,4 @@
+# Calibrări și date locale (nu se publică)
+DRSStarter/data/starts.local.json
+# Integrare locală
+*.sqlite
